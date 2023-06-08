@@ -17,6 +17,8 @@ defmodule WarnMultiErrorHandlingInObanJob.Checks.Runner do
   The job will be considered a success.
   """
 
+  import WarnMultiErrorHandlingInObanJob.Common
+
   use Credo.Check,
     base_priority: :normal,
     category: :warning,
@@ -78,33 +80,6 @@ defmodule WarnMultiErrorHandlingInObanJob.Checks.Runner do
     end
   end
 
-  defp continue_with_file?([{:__aliases__, _, _}, [do: {:__block__, [], header}]]) do
-    using?(header, :Oban) and aliasing?(header, :Ecto)
-  end
-
-  defp continue_with_file?(_), do: false
-
-  # Recurse into piped method calls
-  defp walk({:|>, [line: _, column: _], args}, acc) do
-    Enum.reduce(args, acc, &walk/2)
-  end
-
-  # Look at the method calls
-  defp walk(
-         {{:., [line: _, column: _], [{:__aliases__, [line: _, column: _], [module]}, method]}, _,
-          _},
-         acc
-       ) do
-    case {module, method} do
-      {:Multi, :new} -> Map.put(acc, module, method)
-      {:Repo, :transaction} -> Map.put(acc, module, method)
-      _ -> acc
-    end
-  end
-
-  # Pass through
-  defp walk(_, acc), do: acc
-
   defp issue_for(trigger, line_no, issue_meta) do
     format_issue(
       issue_meta,
@@ -114,23 +89,4 @@ defmodule WarnMultiErrorHandlingInObanJob.Checks.Runner do
     )
   end
 
-  defp using?(data, module), do: dig_for(data, :use, module)
-  defp aliasing?(data, module), do: dig_for(data, :alias, module)
-
-  defp dig_for(nil, _, _), do: false
-
-  defp dig_for(data, section, module) do
-    data
-    |> Enum.filter(fn item ->
-      section == get_in(item, [Access.elem(0)])
-    end)
-    |> Enum.map(fn item ->
-      item
-      |> get_in([Access.elem(2)])
-      |> get_in([Access.at(0)])
-      |> get_in([Access.elem(2)])
-      |> get_in([Access.at(0)])
-    end)
-    |> Enum.any?(&Kernel.==(&1, module))
-  end
 end
