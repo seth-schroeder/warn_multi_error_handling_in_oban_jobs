@@ -1,4 +1,22 @@
 defmodule WarnMultiErrorHandlingInObanJob.Checks.Runner do
+  @moduledoc """
+  Repo.transaction will return a 4 tuple when an error occurs inside a Multi.
+  Verify that errors are being mapped to a 2 tuple that Oban will interpret as expected.
+
+  iex(14)> [warning] Expected Elixir.MyApp.MultiFailure.perform/1 to return:
+  - `:ok`
+  - `:discard`
+  - `{:ok, value}`
+  - `{:error, reason}`,
+  - `{:cancel, reason}`
+  - `{:discard, reason}`
+  - `{:snooze, seconds}`
+  Instead received:
+  {:error, :alas, :poor_yorick, %{}}
+
+  The job will be considered a success.
+  """
+
   use Credo.Check,
     base_priority: :normal,
     category: :warning,
@@ -28,41 +46,43 @@ defmodule WarnMultiErrorHandlingInObanJob.Checks.Runner do
     Credo.Code.prewalk(source_file, &traverse(&1, &2, nil, issue_meta))
   end
 
-  # Performance optimization -- opt in only to :perform methods
-  defguardp is_perform_method?(value) when elem(hd(value), 0) == :perform
-
-  # Bail early unless this module uses Oban and aliases Ecto
+  # Simplify the code by looking only at relevant files
   defp traverse({:defmodule, _, body} = ast, issues, _, _) do
-    # this with clause is needed by `credo explain`
-    with [{:__aliases__, _, _}, [do: {:__block__, [], header}]] <- body do
-      if using?(header, :Oban) and aliasing?(header, :Ecto) do
-        {ast, issues}
-      else
-        {{}, issues}
-      end
+    if continue_with_file?(body) do
+      {ast, issues}
     else
-      _ -> {ast, issues}
+      {{}, issues}
     end
   end
 
-  # Only walk into `perform` methods
-  defp traverse({:def, [line: line, column: _column], heads} = ast, issues, _, issue_meta)
-       when is_perform_method?(heads) do
-    [_, [do: body]] = heads
+  defp traverse({:def, [line: line, column: _column], heads} = ast, issues, params, issue_meta) do
+    {ast, issues_for_function_definition(heads, line, issues, params, issue_meta)}
+  end
 
-    case walk(body, %{}) do
-      %{Multi: :new, Repo: :transaction} ->
-        {ast, [issue_for("foo!", line, issue_meta) | issues]}
-
-      _ ->
-        {ast, issues}
-    end
+  defp traverse({:defp, [line: line, column: _column], heads} = ast, issues, params, issue_meta) do
+    {ast, issues_for_function_definition(heads, line, issues, params, issue_meta)}
   end
 
   # Everything else passes through
   defp traverse(ast, issues, _, _) do
     {ast, issues}
   end
+
+  defp issues_for_function_definition([_, [do: body]], line, issues, _, issue_meta) do
+    case walk(body, %{}) do
+      %{Multi: :new, Repo: :transaction} ->
+        [issue_for("potential error handling concern", line, issue_meta) | issues]
+
+      _ ->
+        issues
+    end
+  end
+
+  defp continue_with_file?([{:__aliases__, _, _}, [do: {:__block__, [], header}]]) do
+    using?(header, :Oban) and aliasing?(header, :Ecto)
+  end
+
+  defp continue_with_file?(_), do: false
 
   # Recurse into piped method calls
   defp walk({:|>, [line: _, column: _], args}, acc) do
@@ -96,6 +116,8 @@ defmodule WarnMultiErrorHandlingInObanJob.Checks.Runner do
 
   defp using?(data, module), do: dig_for(data, :use, module)
   defp aliasing?(data, module), do: dig_for(data, :alias, module)
+
+  defp dig_for(nil, _, _), do: false
 
   defp dig_for(data, section, module) do
     data
