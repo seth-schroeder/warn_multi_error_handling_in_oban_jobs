@@ -16,15 +16,18 @@ defmodule WarnMultiErrorHandlingInObanJob.Common do
   end
 
   def walk(
-         {{:., [line: _, column: _], [{:__aliases__, [line: _, column: _], [module]}, method]}, _,
-          _},
-         acc
-       ) do
-    case {module, method} do
-      {:Multi, :new} -> Map.put(acc, module, method)
-      {:Repo, :transaction} -> Map.put(acc, module, method)
-      _ -> acc
-    end
+        {{:., [line: _, column: _], [{:__aliases__, [line: _, column: _], [module]}, method]}, _,
+         body},
+        acc
+      ) do
+    acc =
+      case {module, method} do
+        {:Multi, :new} -> Map.put(acc, module, method)
+        {:Repo, :transaction} -> Map.put(acc, module, method)
+        _ -> acc
+      end
+
+    Enum.reduce(body, acc, &walk/2)
   end
 
   def walk(_, acc), do: acc
