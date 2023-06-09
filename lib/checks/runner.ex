@@ -72,6 +72,9 @@ defmodule WarnMultiErrorHandlingInObanJob.Checks.Runner do
 
   defp issues_for_function_definition([_, [do: body]], line, issues, _, issue_meta) do
     case walk(body, %{}) do
+      %{Multi: :new, Repo: :transaction, error: _} ->
+        issues
+
       %{Multi: :new, Repo: :transaction} ->
         [issue_for("potential error handling concern", line, issue_meta) | issues]
 
@@ -88,5 +91,4 @@ defmodule WarnMultiErrorHandlingInObanJob.Checks.Runner do
       line_no: line_no
     )
   end
-
 end

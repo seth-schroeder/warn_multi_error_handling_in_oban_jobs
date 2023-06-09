@@ -10,7 +10,7 @@ defmodule WarnMultiErrorHandlingInObanJob.Common do
 
   def continue_with_file?(_), do: false
 
-  @doc "inspect the method definitions"
+  @doc "inspect the pipe chains"
   def walk({:|>, [line: _, column: _], args}, acc) do
     Enum.reduce(args, acc, &walk/2)
   end
@@ -30,7 +30,17 @@ defmodule WarnMultiErrorHandlingInObanJob.Common do
     Enum.reduce(body, acc, &walk/2)
   end
 
+  def walk({:case, [line: _line, column: _column], [[do: clauses]]}, acc) do
+    Enum.reduce(clauses, acc, &look_at_error_handling/2)
+  end
+
   def walk(_, acc), do: acc
+
+  def look_at_error_handling({:->, _, [[ok: _], _]}, acc), do: acc
+
+  def look_at_error_handling({:->, _, [[{:{}, _, [:error, _, _, _]}], {:error, message}]}, acc) do
+    Map.put(acc, :error, message)
+  end
 
   @doc "Check if a module is being used"
   def using?(data, module), do: dig_for(data, :use, module)

@@ -1,7 +1,7 @@
 defmodule WarnMultiErrorHandlingInObanJob.Checks.Tracer do
   @moduledoc "Helpful for development, just dumps AST to the screen"
-  use Credo.Check
   import WarnMultiErrorHandlingInObanJob.Common
+  use Credo.Check
 
   def run(%SourceFile{} = source_file, params \\ []) do
     issue_meta = IssueMeta.for(source_file, params)
