@@ -10,16 +10,12 @@ defmodule WarnMultiErrorHandlingInObanJob.Common do
 
   def continue_with_file?(_), do: false
 
-  @doc "inspect the pipe chains"
+  @doc "Walk through the method bodies"
   def walk({:|>, [line: _, column: _], args}, acc) do
     Enum.reduce(args, acc, &walk/2)
   end
 
-  def walk(
-        {{:., [line: _, column: _], [{:__aliases__, [line: _, column: _], [module]}, method]}, _,
-         body},
-        acc
-      ) do
+  def walk({{:., _, [{:__aliases__, _, [module]}, method]}, _, body}, acc) do
     acc =
       case {module, method} do
         {:Multi, :new} -> Map.put(acc, module, method)
