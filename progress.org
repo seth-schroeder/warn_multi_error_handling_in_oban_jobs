@@ -1,8 +1,8 @@
-* TODO final touches [100%]
+* TODO final touches [80%]
   - [X] true positive on fully qualified ~Multi~
   - [X] test Oban.Pro
-  - [ ] delete tracer
-  - [ ] collapse common
+  - [X] delete tracer
+  - [X] collapse common
   - [ ] run it on some Oban workers
     - [ ] samples from Oban
     - [ ] samples from Oban Pro
