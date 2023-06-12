@@ -3,9 +3,9 @@ defmodule WarnMultiErrorHandlingInObanJob.Common do
   Nothing fancy, just a place to put common code
   """
 
-  @doc "Simplify the code by opting into files that use Oban and alias Ecto"
+  @doc "Simplify the code by opting into files that literally use Oban"
   def continue_with_file?([{:__aliases__, _, _}, [do: {:__block__, [], header}]]) do
-    using?(header, :Oban) and aliasing?(header, :Ecto)
+    using?(header, :Oban)
   end
 
   def continue_with_file?(_), do: false
@@ -15,11 +15,12 @@ defmodule WarnMultiErrorHandlingInObanJob.Common do
     Enum.reduce(args, acc, &walk/2)
   end
 
-  def walk({{:., _, [{:__aliases__, _, [module]}, method]}, _, body}, acc) do
+  def walk({{:., _, [{:__aliases__, _, module}, method]}, _, body}, acc) do
     acc =
       case {module, method} do
-        {:Multi, :new} -> Map.put(acc, module, method)
-        {:Repo, :transaction} -> Map.put(acc, module, method)
+        {[:Ecto, :Multi], :new} -> Map.put(acc, module, method)
+        {[:Multi], :new} -> Map.put(acc, [:Ecto | module], method)
+        {[:Repo], :transaction} -> Map.put(acc, module, method)
         _ -> acc
       end
 
@@ -29,6 +30,13 @@ defmodule WarnMultiErrorHandlingInObanJob.Common do
   def walk({:case, [line: _line, column: _column], [[do: clauses]]}, acc) do
     Enum.reduce(clauses, acc, &look_at_error_handling/2)
   end
+
+  # NOTE: special exception for commented out code being checked in -- I have deleted this waaaaaay too many times now.
+  #
+  # def walk(zut_alors, acc) do
+  #   dbg(zut_alors)
+  #   acc
+  # end
 
   def walk(_, acc), do: acc
 
@@ -40,9 +48,6 @@ defmodule WarnMultiErrorHandlingInObanJob.Common do
 
   @doc "Check if a module is being used"
   def using?(data, module), do: dig_for(data, :use, module)
-
-  @doc "Check if a module is being aliased"
-  def aliasing?(data, module), do: dig_for(data, :alias, module)
 
   # this HAS to be improvable
   defp dig_for(data, section, module) do

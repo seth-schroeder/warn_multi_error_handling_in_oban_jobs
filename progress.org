@@ -1,0 +1,14 @@
+* TODO final touches [100%]
+  - [X] true positive on fully qualified ~Multi~
+  - [X] test Oban.Pro
+  - [ ] delete tracer
+  - [ ] collapse common
+  - [ ] run it on some Oban workers
+    - [ ] samples from Oban
+    - [ ] samples from Oban Pro
+    - [ ] in the wild
+      - [ ] true negatives
+      - [ ] true positives
+* TODO nice to haves
+  - [ ] config option for the module name of ~Repo~
+  - [ ] property testing for aliasing & free/pro Oban
