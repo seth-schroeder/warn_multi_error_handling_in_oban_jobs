@@ -127,6 +127,11 @@ defmodule WarnMultiErrorHandlingInObanJob.Checks.Runner do
   defp look_at_error_handling({:->, _, [[{:=, _, _}], {:error, _, _}]}, acc), do: acc
   defp look_at_error_handling({:->, _, [[{:{}, _, [:error, _, _]}], {:error, _}]}, acc), do: acc
 
+  # this area is noise
+  #
+  # would be better to scan and skip a method definition without Multi.new
+  defp look_at_error_handling({:->, _, _}, acc), do: acc
+
   # This HAS to be improvable. It used to have more than one caller.
   defp in_header?([{:__aliases__, _, _}, [do: {:__block__, [], header}]], section, module) do
     header
