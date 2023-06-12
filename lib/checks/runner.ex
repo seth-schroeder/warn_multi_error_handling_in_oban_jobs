@@ -84,7 +84,25 @@ defmodule WarnMultiErrorHandlingInObanJob.Checks.Runner do
     Enum.reduce(body, acc, &walk/2)
   end
 
-  defp walk({:case, [line: _line, column: _column], [[do: clauses]]}, acc) do
+  defp walk({:case, _, [[do: clauses]]}, acc) do
+    Enum.reduce(clauses, acc, &look_at_error_handling/2)
+  end
+
+  # trial and error is probably not going to scale ._.
+  defp walk(
+         {:case, _,
+          [
+            _,
+            [
+              do: [{:->, _, [_, {:__block__, _, [_, _, {:|>, _, clauses}]}]}, _]
+            ]
+          ]},
+         acc
+       ) do
+    Enum.reduce(clauses, acc, &walk/2)
+  end
+
+  defp walk({:case, _, [_, [do: [{:->, _, [_, clauses]}]]]}, acc) do
     Enum.reduce(clauses, acc, &look_at_error_handling/2)
   end
 
@@ -97,11 +115,17 @@ defmodule WarnMultiErrorHandlingInObanJob.Checks.Runner do
 
   defp walk(_, acc), do: acc
 
-  defp look_at_error_handling({:->, _, [[ok: _], _]}, acc), do: acc
-
+  # this is the happy case
   defp look_at_error_handling({:->, _, [[{:{}, _, [:error, _, _, _]}], {:error, message}]}, acc) do
     Map.put(acc, :error, message)
   end
+
+  # good good, no concerns here
+  defp look_at_error_handling({:->, _, [[ok: _], _]}, acc), do: acc
+
+  # this area is concerning
+  defp look_at_error_handling({:->, _, [[{:=, _, _}], {:error, _, _}]}, acc), do: acc
+  defp look_at_error_handling({:->, _, [[{:{}, _, [:error, _, _]}], {:error, _}]}, acc), do: acc
 
   # This HAS to be improvable. It used to have more than one caller.
   defp in_header?([{:__aliases__, _, _}, [do: {:__block__, [], header}]], section, module) do
